@@ -1,70 +1,104 @@
 import pandas as pd
-import skops.io as sio
-from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.impute import SimpleImputer
-from sklearn.metrics import accuracy_score, f1_score
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OrdinalEncoder, StandardScaler
-
-## Loading the Data
-drug_df = pd.read_csv("Data/drug.csv")
-drug_df = drug_df.sample(frac=1)
-
-## Train Test Split
-from sklearn.model_selection import train_test_split
-
-X = drug_df.drop("Drug", axis=1).values
-y = drug_df.Drug.values
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.3, random_state=125
-)
-
-
-## Pipeline
-cat_col = [1,2,3]
-num_col = [0,4]
-
-transform = ColumnTransformer(
-    [
-        ("encoder", OrdinalEncoder(), cat_col),
-        ("num_imputer", SimpleImputer(strategy="median"), num_col),
-        ("num_scaler", StandardScaler(), num_col),
-    ]
-)
-pipe = Pipeline(
-    steps=[
-        ("preprocessing", transform),
-        ("model", RandomForestClassifier(n_estimators=10, random_state=125)),
-    ]
-)
-
-## Training
-pipe.fit(X_train, y_train)
-
-
-## Model Evaluation
-predictions = pipe.predict(X_test)
-accuracy = accuracy_score(y_test, predictions)
-f1 = f1_score(y_test, predictions, average="macro")
-
-print("Accuracy:", str(round(accuracy, 2) * 100) + "%", "F1:", round(f1, 2))
-
-
-## Confusion Matrix Plot
+import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import (
+    accuracy_score, 
+    f1_score, 
+    precision_score, 
+    recall_score, 
+    roc_auc_score,
+    confusion_matrix,
+    ConfusionMatrixDisplay
+)
+from sklearn.preprocessing import StandardScaler
+from imblearn.over_sampling import SMOTE
+from imblearn.pipeline import Pipeline as ImbPipeline
+import joblib
+import os
 
-predictions = pipe.predict(X_test)
-cm = confusion_matrix(y_test, predictions, labels=pipe.classes_)
-disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=pipe.classes_)
-disp.plot()
-plt.savefig("./Results/model_results.png", dpi=120)
+# Create Results directory if it doesn't exist
+os.makedirs("Results", exist_ok=True)
 
-## Write metrics to file
-with open("./Results/metrics.txt", "w") as outfile:
-    outfile.write(f"\nAccuracy = {round(accuracy, 2)}, F1 Score = {round(f1, 2)}")
+# Set random seed for reproducibility
+RANDOM_STATE = 125
 
-## Saving the model file
-sio.dump(pipe, "./Model/drug_pipeline.skops")
+# Load and prepare the data
+print("Loading data...")
+df = pd.read_csv("Data/creditcard.csv/creditcard.csv")
+
+# Separate features and target
+X = df.drop('Class', axis=1)
+y = df['Class']
+
+# Split the data
+print("Splitting data into train/test sets...")
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=RANDOM_STATE, stratify=y
+)
+
+# Print class distribution
+print("\nClass distribution:")
+print("Training set:", pd.Series(y_train).value_counts().to_dict())
+print("Test set:", pd.Series(y_test).value_counts().to_dict())
+
+# Create pipeline with SMOTE for handling class imbalance
+print("\nCreating and training model...")
+pipeline = ImbPipeline([
+    ('scaler', StandardScaler()),
+    ('smote', SMOTE(random_state=RANDOM_STATE)),
+    ('classifier', RandomForestClassifier(
+        n_estimators=100,
+        class_weight='balanced',
+        random_state=RANDOM_STATE,
+        n_jobs=-1
+    ))
+])
+
+# Train the model
+pipeline.fit(X_train, y_train)
+
+# Make predictions
+print("\nEvaluating model...")
+y_pred = pipeline.predict(X_test)
+y_pred_proba = pipeline.predict_proba(X_test)[:, 1]
+
+# Calculate metrics
+test_accuracy = accuracy_score(y_test, y_pred)
+test_f1 = f1_score(y_test, y_pred)
+test_precision = precision_score(y_test, y_pred)
+test_recall = recall_score(y_test, y_pred)
+test_roc_auc = roc_auc_score(y_test, y_pred_proba)
+
+# Print metrics
+print(f"\nModel Performance:")
+print(f"Accuracy: {test_accuracy:.4f}")
+print(f"F1 Score: {test_f1:.4f}")
+print(f"Precision: {test_precision:.4f}")
+print(f"Recall: {test_recall:.4f}")
+print(f"ROC AUC: {test_roc_auc:.4f}")
+
+# Save metrics to file
+with open("Results/metrics.txt", "w") as f:
+    f.write(f"Accuracy: {test_accuracy:.4f}\n")
+    f.write(f"F1 Score: {test_f1:.4f}\n")
+    f.write(f"Precision: {test_precision:.4f}\n")
+    f.write(f"Recall: {test_recall:.4f}\n")
+    f.write(f"ROC AUC: {test_roc_auc:.4f}")
+
+# Plot and save confusion matrix
+print("\nGenerating confusion matrix...")
+cm = confusion_matrix(y_test, y_pred)
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Genuine', 'Fraud'])
+fig, ax = plt.subplots(figsize=(8, 6))
+disp.plot(ax=ax, cmap=plt.cm.Blues)
+plt.title('Confusion Matrix')
+plt.savefig('Results/confusion_matrix.png', dpi=300, bbox_inches='tight')
+
+# Save the model
+print("\nSaving model...")
+os.makedirs("Model", exist_ok=True)
+joblib.dump(pipeline, 'Model/credit_card_fraud_model.joblib')
+
+print("\nTraining and evaluation completed successfully!")

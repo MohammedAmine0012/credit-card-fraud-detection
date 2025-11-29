@@ -5,26 +5,52 @@ on:
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
-  
-permissions: write-all
+
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
-  build:
+  cml:
     runs-on: ubuntu-latest
+    container: docker://dvcorg/cml-py3:latest
     steps:
       - uses: actions/checkout@v3
-      - uses: iterative/setup-cml@v2
-      - name: Install Packages
-        run: make install
-      - name: Format
-        run: make format
-      - name: Train
-        run: make train
-      - name: Evaluation
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install "cml>=0.2.40"
+          pip install matplotlib
+      
+      - name: Train model
+        run: |
+          python train.py
+          
+          # Save model performance metrics
+          echo "## Model Performance" > report.md
+          cat Results/metrics.txt >> report.md
+          echo "\n## Confusion Matrix" >> report.md
+          echo '![Confusion Matrix](./Results/confusion_matrix.png)' >> report.md
+          
+      - name: Create CML report
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: make eval
-      - name: Update Branch
-        env:
-          NAME: ${{ secrets.USER_NAME }}
-          EMAIL: ${{ secrets.USER_EMAIL }}
-        run: make update-branch USER_NAME=$NAME USER_EMAIL=$EMAIL
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          # Install dependencies for CML
+          apt-get update && apt-get install -y python3-pip
+          pip3 install --upgrade pip
+          pip3 install cml-send-comment
+          
+          # Create CML report
+          cml-publish "Results/confusion_matrix.png" --md >> report.md
+          cml-send-comment report.md --pr
+          
+          # Update branch with results
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          git add .
+          git commit -m "Update model and evaluation results"
+          git push

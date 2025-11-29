@@ -4,16 +4,52 @@ on:
     workflows: ["Continuous Integration"]
     types:
       - completed
-
   workflow_dispatch:
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Deployment To Hugging Face
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install huggingface-hub
+      
+      - name: Deploy to Hugging Face Spaces
         env:
-          HF: ${{ secrets.HF }}
-        run: make deploy HF=$HF
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Install Git LFS
+          sudo apt-get update
+          sudo apt-get install -y git-lfs
+          
+          # Configure Git
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Action"
+          
+          # Clone the Hugging Face repository
+          git clone https://huggingface.co/spaces/kingabzpro/Credit-Card-Fraud-Detection
+          cd Credit-Card-Fraud-Detection
+          
+          # Copy necessary files
+          cp -r ../App/* .
+          cp -r ../Model .
+          cp -r ../Results .
+          
+          # Add and push changes
+          git lfs install
+          git add .
+          git commit -m "Deploy model and app"
+          git push https://oauth2:$HF_TOKEN@huggingface.co/spaces/kingabzpro/Credit-Card-Fraud-Detection.git main
