@@ -47,12 +47,14 @@ jobs:
           git clone https://oauth2:${HF_TOKEN}@huggingface.co/spaces/Moamineelhilali/Credit-Card-Fraud-Detection
           cd Credit-Card-Fraud-Detection
           
-          # Copy necessary files
+          # Ensure no binary model files are tracked in the Space
+          git rm -rf --cached Model || true
+          rm -rf Model || true
+          
+          # Copy necessary files (app only, no binaries)
           cp -r ../App/* .
-          cp -r ../Model .
-          cp -r ../Results .
           
           # Add and push changes
           git add .
-          git commit -m "Update app and model" || echo "No changes to commit"
+          git commit -m "Deploy app only (no binaries)" || echo "No changes to commit"
           git push

@@ -1,56 +1,49 @@
-name: Continuous Deployment
+name: Continuous Integration
 on:
-  workflow_run:
-    workflows: ["Continuous Integration"]
-    types:
-      - completed
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
-  deploy:
+  cml:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    container: docker://dvcorg/cml-py3:latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
       
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install huggingface-hub
+          pip install "cml>=0.2.40"
+          pip install matplotlib
       
-      - name: Configure Git
+      - name: Train model
         run: |
-          git config --global user.email "actions@github.com"
-          git config --global user.name "GitHub Action"
-      
-      - name: Login to Hugging Face
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          mkdir -p ~/.cache/huggingface
-          echo "{\"token\": \"$HF_TOKEN\"}" > ~/.cache/huggingface/token
-      
-      - name: Deploy to Hugging Face
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          # Clone the repository using HTTPS with token
-          git clone https://oauth2:${HF_TOKEN}@huggingface.co/spaces/Moamineelhilali/Credit-Card-Fraud-Detection
-          cd Credit-Card-Fraud-Detection
+          python train.py
           
-          # Copy only necessary non-binary files
-          cp -r ../App/* .
-          mkdir -p Model
+          # Build report
+          echo "## Model Performance" > report.md
+          cat Results/metrics.txt >> report.md || true
+          echo "\n## Confusion Matrix" >> report.md
+          if [ -f Results/confusion_matrix.png ]; then echo '![Confusion Matrix](./Results/confusion_matrix.png)' >> report.md; fi
+      
+      - name: Create CML report
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Publish image to get a URL and comment the report
+          if [ -f Results/confusion_matrix.png ]; then cml-publish "Results/confusion_matrix.png" --md >> report.md; fi
+          cml-send-comment report.md --pr || true
           
-          # Add and push changes
-          git add .
-          git commit -m "Update app" || echo "No changes to commit"
-          git push
+          # Optionally commit textual results back to the branch
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          git add Results/metrics.txt || true
+          git commit -m "Update metrics" || echo "No changes to commit"
+          git push || true
