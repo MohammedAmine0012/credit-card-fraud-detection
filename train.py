@@ -26,7 +26,18 @@ RANDOM_STATE = 125
 
 # Load and prepare the data
 print("Loading data...")
-df = pd.read_csv("Data/creditcard.csv/creditcard.csv")
+try:
+    df = pd.read_csv("Data/creditcard.csv/creditcard.csv")
+except FileNotFoundError:
+    print("Dataset not found. Generating a synthetic dataset for CI...")
+    rng = np.random.default_rng(42)
+    n_samples = 5000
+    time = np.arange(n_samples)
+    v_cols = {f"V{i}": rng.normal(0, 1, n_samples) for i in range(1, 29)}
+    amount = rng.lognormal(mean=3.0, sigma=1.0, size=n_samples)
+    y = (rng.random(n_samples) < 0.01).astype(int)
+    data = {"Time": time, **v_cols, "Amount": amount, "Class": y}
+    df = pd.DataFrame(data)
 
 # Separate features and target
 X = df.drop('Class', axis=1)
