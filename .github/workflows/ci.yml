@@ -1,56 +1,56 @@
-name: Continuous Integration
+name: Continuous Deployment
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_run:
+    workflows: ["Continuous Integration"]
+    types:
+      - completed
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
-  cml:
+  deploy:
     runs-on: ubuntu-latest
-    container: docker://dvcorg/cml-py3:latest
+    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install "cml>=0.2.40"
-          pip install matplotlib
+          pip install huggingface-hub
       
-      - name: Train model
+      - name: Configure Git
         run: |
-          python train.py
-          
-          # Save model performance metrics
-          echo "## Model Performance" > report.md
-          cat Results/metrics.txt >> report.md
-          echo "\n## Confusion Matrix" >> report.md
-          echo '![Confusion Matrix](./Results/confusion_matrix.png)' >> report.md
-          
-      - name: Create CML report
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Action"
+      
+      - name: Login to Hugging Face
         env:
-          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # Install dependencies for CML
-          apt-get update && apt-get install -y python3-pip
-          pip3 install --upgrade pip
-          pip3 install cml-send-comment
+          mkdir -p ~/.cache/huggingface
+          echo "{\"token\": \"$HF_TOKEN\"}" > ~/.cache/huggingface/token
+      
+      - name: Deploy to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Clone the repository using HTTPS with token
+          git clone https://oauth2:${HF_TOKEN}@huggingface.co/spaces/Moamineelhilali/Credit-Card-Fraud-Detection
+          cd Credit-Card-Fraud-Detection
           
-          # Create CML report
-          cml-publish "Results/confusion_matrix.png" --md >> report.md
-          cml-send-comment report.md --pr
+          # Copy only necessary non-binary files
+          cp -r ../App/* .
+          mkdir -p Model
           
-          # Update branch with results
-          git config --global user.name 'GitHub Action'
-          git config --global user.email 'action@github.com'
+          # Add and push changes
           git add .
-          git commit -m "Update model and evaluation results"
+          git commit -m "Update app" || echo "No changes to commit"
           git push
