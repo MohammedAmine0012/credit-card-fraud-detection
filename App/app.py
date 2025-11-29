@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import joblib
 from pathlib import Path
+from huggingface_hub import hf_hub_download
 
 # Set page config
 st.set_page_config(
@@ -11,14 +12,18 @@ st.set_page_config(
     layout="wide"
 )
 
-# Load the trained model
+# Load the trained model from Hugging Face Hub
 @st.cache_resource
 def load_model():
-    # Use absolute path to avoid any relative path issues
-    model_path = Path(__file__).parent.parent / "Model" / "credit_card_fraud_model.joblib"
-    model_path = str(model_path.absolute())
-    print(f"Loading model from: {model_path}")
-    return joblib.load(model_path)
+    try:
+        repo_id = "Moamineelhilali/credit-card-fraud-model"
+        filename = "credit_card_fraud_model.joblib"
+        local_path = hf_hub_download(repo_id=repo_id, filename=filename)
+        return joblib.load(local_path)
+    except Exception as e:
+        st.warning("Model could not be loaded from the Hub. The app will run without predictions.")
+        st.info(f"Details: {e}")
+        return None
 
 model = load_model()
 
@@ -65,33 +70,36 @@ st.write(input_df)
 
 # Make prediction
 if st.sidebar.button('Check for Fraud'):
-    # Make prediction
-    prediction = model.predict(input_df)
-    prediction_proba = model.predict_proba(input_df)
-    
-    # Display results
-    st.subheader('Prediction')
-    fraud_probability = prediction_proba[0][1] * 100
-    
-    if prediction[0] == 1:
-        st.error(f"🚨 Potential Fraud Detected! ({fraud_probability:.2f}% probability)")
+    if model is None:
+        st.error("Model not available. Please try again later.")
     else:
-        st.success(f"✅ Transaction Appears Legitimate ({100 - fraud_probability:.2f}% probability)")
-    
-    # Show probability
-    st.subheader('Prediction Probability')
-    st.write(f"Probability of being fraudulent: {fraud_probability:.2f}%")
-    
-    # Show feature importance (if available)
-    if hasattr(model.named_steps['classifier'], 'feature_importances_'):
-        st.subheader('Feature Importance')
-        importances = model.named_steps['classifier'].feature_importances_
-        features = input_df.columns
-        importance_df = pd.DataFrame({
-            'Feature': features,
-            'Importance': importances
-        }).sort_values('Importance', ascending=False)
-        st.bar_chart(importance_df.set_index('Feature'))
+        # Make prediction
+        prediction = model.predict(input_df)
+        prediction_proba = model.predict_proba(input_df)
+        
+        # Display results
+        st.subheader('Prediction')
+        fraud_probability = prediction_proba[0][1] * 100
+        
+        if prediction[0] == 1:
+            st.error(f"🚨 Potential Fraud Detected! ({fraud_probability:.2f}% probability)")
+        else:
+            st.success(f"✅ Transaction Appears Legitimate ({100 - fraud_probability:.2f}% probability)")
+        
+        # Show probability
+        st.subheader('Prediction Probability')
+        st.write(f"Probability of being fraudulent: {fraud_probability:.2f}%")
+        
+        # Show feature importance (if available)
+        if hasattr(model.named_steps['classifier'], 'feature_importances_'):
+            st.subheader('Feature Importance')
+            importances = model.named_steps['classifier'].feature_importances_
+            features = input_df.columns
+            importance_df = pd.DataFrame({
+                'Feature': features,
+                'Importance': importances
+            }).sort_values('Importance', ascending=False)
+            st.bar_chart(importance_df.set_index('Feature'))
 
 # Add some information about the model
 st.sidebar.info("""

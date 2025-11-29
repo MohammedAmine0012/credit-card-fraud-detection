@@ -51,10 +51,15 @@ jobs:
           git rm -rf --cached Model || true
           rm -rf Model || true
           
+          # Ensure old drug_app is removed to avoid wrong entrypoint
+          git rm -f drug_app.py || true
+          rm -f drug_app.py || true
+          
           # Copy necessary files (app only, no binaries)
-          cp -r ../App/* .
+          cp -f ../App/app.py .
+          if [ -f ../App/requirements.txt ]; then cp -f ../App/requirements.txt .; fi
           
           # Add and push changes
           git add .
-          git commit -m "Deploy app only (no binaries)" || echo "No changes to commit"
+          git commit -m "Deploy app only (no binaries); remove drug_app and Model" || echo "No changes to commit"
           git push
