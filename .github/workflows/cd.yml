@@ -57,9 +57,14 @@ jobs:
           
           # Copy necessary files (app only, no binaries)
           cp -f ../App/app.py .
-          if [ -f ../App/requirements.txt ]; then cp -f ../App/requirements.txt .; fi
+          if [ -f ../App/requirements.txt ]; then cp -f ../App/requirements.txt .; else echo "streamlit>=1.30.0" > requirements.txt; fi
+
+          # Show repo contents and validate entrypoint
+          echo "\n[Space repo contents after copy]" && ls -la
+          if [ ! -f app.py ]; then echo "ERROR: app.py not found after copy"; exit 1; fi
+          if [ ! -f requirements.txt ]; then echo "streamlit>=1.30.0" > requirements.txt; fi
           
           # Add and push changes
           git add .
-          git commit -m "Deploy app only (no binaries); remove drug_app and Model" || echo "No changes to commit"
+          git commit -m "Deploy app only (no binaries); ensure app.py present; remove drug_app and Model" || echo "No changes to commit"
           git push
