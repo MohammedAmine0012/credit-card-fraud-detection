@@ -35,7 +35,9 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python -c "from huggingface_hub import HfFolder; HfFolder.save_token('${{ secrets.HF_TOKEN }}')"
+          # Using the new API for token storage
+          mkdir -p ~/.cache/huggingface
+          echo "{\"token\": \"$HF_TOKEN\"}" > ~/.cache/huggingface/token
       
       - name: Deploy to Hugging Face
         env:
