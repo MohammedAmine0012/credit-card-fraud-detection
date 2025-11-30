@@ -73,6 +73,21 @@ jobs:
           
           # Force a change so a commit is created
           date -u +"%Y-%m-%dT%H:%M:%SZ" > .last_deploy
+
+          # Diagnostics
+          echo "\n[Git status before commit]" && git status
+          echo "\n[Git remotes]" && git remote -v
+
+          # Commit and push
+          git add .
+          git commit -m "Deploy app only; ensure app.py present; remove Model/drug_app" || echo "No changes to commit"
+
+          echo "\n[Git log -1]" && git log -1 --oneline || true
+          echo "\n[Diff vs origin/main]" && git fetch origin main || true
+          git diff --name-status origin/main..HEAD || true
+
+          echo "\n[Pushing HEAD to origin/main]"
+          git push origin HEAD:main -v
           
           # Add and push changes
           git add .
