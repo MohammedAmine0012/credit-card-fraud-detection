@@ -7,3 +7,4 @@ matplotlib>=3.4.0
 joblib>=1.1.0
 plotly>=5.13.0
 huggingface-hub>=0.22.0
+imbalanced-learn>=0.10.0
