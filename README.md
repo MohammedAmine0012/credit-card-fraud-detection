@@ -1,9 +1,8 @@
 # CICD-for-Machine-Learning: Credit Card Fraud Detection
-[![CI](https://github.com/kingabzpro/CICD-for-Machine-Learning/actions/workflows/ci.yml/badge.svg)](https://github.com/kingabzpro/CICD-for-Machine-Learning/actions/workflows/ci.yml)
-[![Continuous Deployment](https://github.com/kingabzpro/CICD-for-Machine-Learning/actions/workflows/cd.yml/badge.svg)](https://github.com/kingabzpro/CICD-for-Machine-Learning/actions/workflows/cd.yml)
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kingabzpro/CICD-for-Machine-Learning/blob/main/notebook.ipynb)
+[![CI](https://github.com/MohammedAmine0012/credit-card-fraud-detection/actions/workflows/ci.yml/badge.svg)](https://github.com/MohammedAmine0012/credit-card-fraud-detection/actions/workflows/ci.yml)
+[![Continuous Deployment](https://github.com/MohammedAmine0012/credit-card-fraud-detection/actions/workflows/cd.yml/badge.svg)](https://github.com/MohammedAmine0012/credit-card-fraud-detection/actions/workflows/cd.yml)
 
-[![DataCamp](https://img.shields.io/badge/Datacamp-05192D?style=for-the-badge&logo=datacamp&logoColor=65FF8F)](https://www.datacamp.com/tutorial/ci-cd-for-machine-learning) [![Open in Spaces](https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-md-dark.svg)](https://huggingface.co/spaces/kingabzpro/Credit-Card-Fraud-Detection)
+[![Open the Space](https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-md-dark.svg)](https://huggingface.co/spaces/Moamineelhilali/Credit-Card-Fraud-Detection)
 
 Automated MLOps pipeline for credit card fraud detection using scikit-learn, Streamlit, and GitHub Actions.
 
@@ -11,11 +10,14 @@ Automated MLOps pipeline for credit card fraud detection using scikit-learn, Str
 This project demonstrates an end-to-end machine learning workflow for detecting credit card fraud. It includes:
 - Data preprocessing and feature engineering
 - Model training with class imbalance handling (SMOTE)
-- Automated testing and evaluation
+- Automated checks and evaluation
 - CI/CD pipeline with GitHub Actions
-- Web application deployment with Streamlit
+- Web application deployment with Streamlit to Hugging Face Spaces
 
-The entire process is automated using GitHub Actions. Push your code to the repository, and the model will be automatically trained, evaluated, and deployed.
+Deployed app: https://huggingface.co/spaces/Moamineelhilali/Credit-Card-Fraud-Detection  
+Model repository: https://huggingface.co/Moamineelhilali/credit-card-fraud-model
+
+The process is automated using GitHub Actions. On push to main, CI verifies that the published model can be downloaded from the Hugging Face Hub. On CI success, CD deploys the Streamlit app to the Space; the app downloads the model from the model repo at runtime (no binaries are pushed to the Space).
 
 ## Pipeline
 
@@ -28,12 +30,15 @@ The entire process is automated using GitHub Actions. Push your code to the repo
 - **Class Distribution**: Highly imbalanced (0.17% fraud cases)
 
 ## Results
+Example performance from a typical RandomForestClassifier pipeline on this task (for illustration):
+
 | Model                  | Accuracy | F1 Score | Precision | Recall | ROC AUC |
 |------------------------|----------|----------|-----------|--------|---------|
-| RandomForestClassifier | 99.95%   | 0.8427   | 0.9375    | 0.7653 | 0.9453  |
+| RandomForestClassifier | 99.9%+   | 0.84+    | 0.93+     | 0.76+  | 0.94+   |
 
-### Confusion Matrix
-![Confusion Matrix](./Results/confusion_matrix.png)
+Notes:
+- Metrics are sensitive to sampling, preprocessing, and class imbalance handling (SMOTE).
+- In CI, we avoid pushing large artifacts and do not train on every commit. The Space app loads the model from the HF model repo.
 
 ## Local Setup
 1. Clone the repository
@@ -47,11 +52,11 @@ The entire process is automated using GitHub Actions. Push your code to the repo
    ```
 
 ## CI/CD Workflow
-- **CI Pipeline**:
-  - Code formatting with Black
-  - Model training and evaluation
-  - Performance metrics reporting
+- **CI (Continuous Integration)**
+  - Lightweight check: installs minimal deps and verifies the model can be downloaded and loaded from the Hugging Face model repo.
+  - Keeps runs fast and avoids re-training on every commit.
 
-- **CD Pipeline**:
-  - Model deployment to Hugging Face Spaces
-  - Automatic updates on push to main branch
+- **CD (Continuous Deployment)**
+  - Deploys only the Streamlit app files to the Hugging Face Space.
+  - Ensures the Space has `app.py` at the root and a `requirements.txt`.
+  - The app downloads the trained model from the model repository at runtime.
