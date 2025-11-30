@@ -80,26 +80,26 @@ jobs:
 
           # Ensure README metadata sets Streamlit SDK and app_file
           echo "\n[Ensure README.md metadata for Streamlit]"
-          if [ ! -f README.md ] || ! grep -q "sdk:\s*streamlit" README.md; then
-            cat > README.md <<'MD'
----
-title: Credit Card Fraud Detection
-emoji: 💳
-colorFrom: blue
-colorTo: indigo
-sdk: streamlit
-sdk_version: 1.32.0
-app_file: app.py
-pinned: false
----
-
-# Credit Card Fraud Detection (Streamlit)
-
-This Space hosts a Streamlit app for credit card fraud detection.
-MD
+          if [ ! -f README.md ] || ! grep -E "sdk:\\s*streamlit" README.md; then
+            printf '%s\n' \
+              '---' \
+              'title: Credit Card Fraud Detection' \
+              'emoji: 💳' \
+              'colorFrom: blue' \
+              'colorTo: indigo' \
+              'sdk: streamlit' \
+              'sdk_version: 1.32.0' \
+              'app_file: app.py' \
+              'pinned: false' \
+              '---' \
+              '' \
+              '# Credit Card Fraud Detection (Streamlit)' \
+              '' \
+              'This Space hosts a Streamlit app for credit card fraud detection.' \
+              > README.md
           else
             # If README exists, ensure app_file is set
-            if ! grep -q "app_file:\s*app.py" README.md; then
+            if ! grep -E "app_file:\\s*app.py" README.md; then
               printf "\napp_file: app.py\n" >> README.md
             fi
           fi
